@@ -1,8 +1,8 @@
 package handler
 
 import (
+	"bloomo-exam-api/infrastructure/logger"
 	"encoding/json"
-	"log"
 	"net/http"
 	"time"
 )
@@ -42,16 +42,22 @@ func respondWithError(w http.ResponseWriter, r *http.Request, status int, code E
 		Details:   details,
 	}
 
-	// ログ出力
-	logLevel := "WARN"
+	// ロギングコンテキストを作成
+	ctx := logger.NewContext().
+		Add("method", r.Method).
+		Add("path", r.URL.Path).
+		Add("status_code", status).
+		Add("error_code", code).
+		Add("details", details)
+
+	// ログレベルを決定
+	logLevel := logger.WARN
 	if status >= 500 {
-		logLevel = "ERROR"
+		logLevel = logger.ERROR
 	}
-	log.Printf("[%s] %s - status=%d code=%s message=%s path=%s",
-		logLevel, time.Now().Format(time.RFC3339), status, code, message, r.URL.Path)
-	if len(details) > 0 {
-		log.Printf("[DETAIL] %v", details)
-	}
+
+	// ロギング
+	logger.LogContext(logLevel, message, ctx)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
@@ -70,8 +76,12 @@ func RecoveryMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if err := recover(); err != nil {
-				log.Printf("[PANIC] %s %s - %v", r.Method, r.URL.Path, err)
-				
+				ctx := logger.NewContext().
+					Add("method", r.Method).
+					Add("path", r.URL.Path).
+					Add("panic", err)
+				logger.LogContext(logger.ERROR, "Panic recovered", ctx)
+
 				errorResp := ErrorResponse{
 					Code:      ErrCodeInternalError,
 					Message:   "internal server error",
@@ -93,11 +103,19 @@ func RecoveryMiddleware(next http.Handler) http.Handler {
 func LoggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-		log.Printf("[INFO] %s %s started", r.Method, r.URL.Path)
+		
+		ctx := logger.NewContext().
+			Add("method", r.Method).
+			Add("path", r.URL.Path)
+		logger.LogContext(logger.DEBUG, "Request received", ctx)
 
 		next.ServeHTTP(w, r)
 
 		duration := time.Since(start)
-		log.Printf("[INFO] %s %s completed in %v", r.Method, r.URL.Path, duration)
+		ctxResponse := logger.NewContext().
+			Add("method", r.Method).
+			Add("path", r.URL.Path).
+			Add("duration", duration.String())
+		logger.LogContext(logger.DEBUG, "Request completed", ctxResponse)
 	})
 }

@@ -2,10 +2,10 @@ package handler
 
 import (
 	"bloomo-exam-api/domain/portfolio"
+	"bloomo-exam-api/infrastructure/logger"
 	"bloomo-exam-api/usecase"
 	"encoding/json"
 	"errors"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -63,7 +63,10 @@ func (h *TradeHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondWithError(w, r, http.StatusBadRequest, ErrCodeInvalidInput,
 			"invalid request body", err.Error())
-		log.Printf("[WARN] Failed to decode request body: %v", err)
+		logger.Warn("Failed to decode request body", map[string]interface{}{
+			"user_id": userID,
+			"error":   err.Error(),
+		})
 		return
 	}
 
@@ -75,7 +78,11 @@ func (h *TradeHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// ユースケース実行
-	log.Printf("[INFO] Executing trade usecase: userID=%d, amount=%d", userID, req.Amount)
+	ctx := logger.NewContext().
+		Add("user_id", userID).
+		Add("amount", req.Amount)
+	logger.LogContext(logger.DEBUG, "Executing trade usecase", ctx)
+	
 	output, err := h.tradeUsecase.Execute(usecase.TradeInput{
 		UserID: userID,
 		Amount: req.Amount,
@@ -94,7 +101,11 @@ func (h *TradeHandler) Handle(w http.ResponseWriter, r *http.Request) {
 		} else {
 			respondWithError(w, r, http.StatusInternalServerError, ErrCodeInternalError,
 				"failed to execute trade", err.Error())
-			log.Printf("[ERROR] Trade execution failed: %v", err)
+			logger.Error("Trade execution failed", map[string]interface{}{
+				"user_id": userID,
+				"amount":  req.Amount,
+				"error":   err.Error(),
+			})
 		}
 		return
 	}
@@ -115,6 +126,10 @@ func (h *TradeHandler) Handle(w http.ResponseWriter, r *http.Request) {
 		Orders:          orders,
 	}
 
-	log.Printf("[INFO] Trade executed successfully: userID=%d, orders=%d", userID, len(orders))
+	logger.LogContext(logger.INFO, "Trade executed successfully", logger.NewContext().
+		Add("user_id", userID).
+		Add("amount", output.Amount).
+		Add("orders_count", len(orders)))
+	
 	respondJSON(w, http.StatusOK, response)
 }

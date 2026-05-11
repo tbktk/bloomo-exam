@@ -2,6 +2,7 @@ package main
 
 import (
 	"bloomo-exam-api/domain/trade"
+	"bloomo-exam-api/infrastructure/logger"
 	"bloomo-exam-api/infrastructure/memory"
 	"bloomo-exam-api/interface/http/handler"
 	"bloomo-exam-api/usecase"
@@ -10,6 +11,14 @@ import (
 )
 
 func main() {
+	// ロガーの初期化
+	logDir := "$HOME/.bloomo-exam/logs"
+	if err := logger.Init(logDir, logger.INFO, false); err != nil {
+		log.Fatalf("Failed to initialize logger: %v", err)
+	}
+	
+	logger.Info("Application starting")
+
 	stockRepo := memory.NewStockRepository()
 	portfolioRepo := memory.NewPortfolioRepository()
 	calculator := &trade.OrderCalculator{}
@@ -28,8 +37,8 @@ func main() {
 
 	// サーバー起動
 	addr := ":1111"
-	log.Printf("server starting on %s", addr)
+	logger.Info("Server starting", map[string]interface{}{"addr": addr})
 	if err := http.ListenAndServe(addr, handlerWithMiddleware); err != nil {
-		log.Fatalf("server failed: %v", err)
+		logger.Fatal("Server failed", map[string]interface{}{"error": err.Error()})
 	}
 }
