@@ -1,0 +1,19 @@
+/.vscode
+
+.env
+.env.local
+api/.env
+
+# Local development mounts and build artifacts
+dev_volumes/
+
+# Next.js build artifacts (local dev)
+/web/.next/
+/web/.next/cache/
+
+# Node modules (local dev)
+/web/node_modules/
+
+# Logs and OS files
+*.log
+.DS_Store
