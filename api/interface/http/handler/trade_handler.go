@@ -8,7 +8,6 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
-	"strings"
 )
 
 type TradeHandler struct {
@@ -94,19 +93,21 @@ func (h *TradeHandler) Handle(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// その他のエラーを詳細に分類
-		if strings.Contains(err.Error(), "invalid") {
+		// バリデーションエラーをチェック
+		if usecase.IsValidationError(err) {
 			respondWithError(w, r, http.StatusBadRequest, ErrCodeInvalidInput,
 				"invalid input parameters", err.Error())
-		} else {
-			respondWithError(w, r, http.StatusInternalServerError, ErrCodeInternalError,
-				"failed to execute trade", err.Error())
-			logger.Error("Trade execution failed", map[string]interface{}{
-				"user_id": userID,
-				"amount":  req.Amount,
-				"error":   err.Error(),
-			})
+			return
 		}
+
+		// その他のエラー
+		respondWithError(w, r, http.StatusInternalServerError, ErrCodeInternalError,
+			"failed to execute trade", err.Error())
+		logger.Error("Trade execution failed", map[string]interface{}{
+			"user_id": userID,
+			"amount":  req.Amount,
+			"error":   err.Error(),
+		})
 		return
 	}
 

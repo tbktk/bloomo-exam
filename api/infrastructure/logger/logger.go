@@ -57,7 +57,7 @@ var (
 
 // Init はロガーを初期化する
 func Init(logDir string, level LogLevel, jsonFormat bool) error {
-	var err error
+	var initErr error
 	once.Do(func() {
 		writers := []io.Writer{os.Stdout}
 
@@ -66,11 +66,13 @@ func Init(logDir string, level LogLevel, jsonFormat bool) error {
 			logDir = os.ExpandEnv(logDir)
 			if err := os.MkdirAll(logDir, 0755); err != nil {
 				log.Printf("[WARN] Failed to create log directory: %v", err)
+				initErr = fmt.Errorf("failed to create log directory: %w", err)
 			} else {
 				logFile := filepath.Join(logDir, fmt.Sprintf("app-%s.log", time.Now().Format("2006-01-02")))
 				file, err := os.OpenFile(logFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
 				if err != nil {
 					log.Printf("[WARN] Failed to open log file: %v", err)
+					initErr = fmt.Errorf("failed to open log file: %w", err)
 				} else {
 					writers = append(writers, file)
 				}
@@ -84,7 +86,7 @@ func Init(logDir string, level LogLevel, jsonFormat bool) error {
 		}
 	})
 
-	return err
+	return initErr
 }
 
 // GetLogger はデフォルトロガーを返す

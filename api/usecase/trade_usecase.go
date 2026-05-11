@@ -47,19 +47,25 @@ func (u *TradeUsecase) Execute(input TradeInput) (*TradeOutput, error) {
 	// UserID値オブジェクト生成
 	userID, err := vo.NewUserID(input.UserID)
 	if err != nil {
-		return nil, fmt.Errorf("invalid user_id: %w", err)
+		return nil, ValidationError{
+			Field:   "user_id",
+			Message: err.Error(),
+		}
 	}
 
 	// Amount値オブジェクト生成（最低取引金額チェック）
 	amount, err := vo.NewAmount(input.Amount)
 	if err != nil {
-		return nil, fmt.Errorf("invalid amount: %w", err)
+		return nil, ValidationError{
+			Field:   "amount",
+			Message: err.Error(),
+		}
 	}
 
 	// ポートフォリオ取得
 	pf, err := u.portfolioRepo.FindByUserID(userID)
 	if err != nil {
-		return nil, fmt.Errorf("portfolio not found: %w", err)
+		return nil, err
 	}
 
 	// 銘柄一覧取得
