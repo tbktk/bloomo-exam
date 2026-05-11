@@ -5,8 +5,10 @@ import (
 	"bloomo-exam-api/usecase"
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 type TradeHandler struct {
@@ -34,8 +36,10 @@ type tradeResponse struct {
 }
 
 func (h *TradeHandler) Handle(w http.ResponseWriter, r *http.Request) {
+	// HTTPメソッドのチェック
 	if r.Method != http.MethodPost {
-		respondError(w, http.StatusMethodNotAllowed, "method not allowed")
+		respondWithError(w, r, http.StatusMethodNotAllowed, ErrCodeMethodNotAllowed,
+			"only POST method is allowed")
 		return
 	}
 
@@ -43,28 +47,55 @@ func (h *TradeHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	userIDStr := r.PathValue("user_id")
 	userID, err := strconv.Atoi(userIDStr)
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "invalid user_id")
+		respondWithError(w, r, http.StatusBadRequest, ErrCodeInvalidInput,
+			"invalid user_id parameter", "user_id must be a positive integer")
+		return
+	}
+
+	if userID <= 0 {
+		respondWithError(w, r, http.StatusBadRequest, ErrCodeInvalidInput,
+			"user_id must be positive", "user_id="+userIDStr+" is not allowed")
 		return
 	}
 
 	// リクエストボディのデコード
 	var req tradeRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid request body")
+		respondWithError(w, r, http.StatusBadRequest, ErrCodeInvalidInput,
+			"invalid request body", err.Error())
+		log.Printf("[WARN] Failed to decode request body: %v", err)
+		return
+	}
+
+	// リクエストボディのバリデーション
+	if req.Amount <= 0 {
+		respondWithError(w, r, http.StatusBadRequest, ErrCodeInvalidInput,
+			"invalid amount", "amount must be a positive integer")
 		return
 	}
 
 	// ユースケース実行
+	log.Printf("[INFO] Executing trade usecase: userID=%d, amount=%d", userID, req.Amount)
 	output, err := h.tradeUsecase.Execute(usecase.TradeInput{
 		UserID: userID,
 		Amount: req.Amount,
 	})
 	if err != nil {
 		if errors.Is(err, portfolio.ErrNotFound) {
-			respondError(w, http.StatusNotFound, "portfolio not found")
+			respondWithError(w, r, http.StatusNotFound, ErrCodeNotFound,
+				"user portfolio not found", "user_id="+userIDStr+" does not have a portfolio")
 			return
 		}
-		respondError(w, http.StatusBadRequest, err.Error())
+
+		// その他のエラーを詳細に分類
+		if strings.Contains(err.Error(), "invalid") {
+			respondWithError(w, r, http.StatusBadRequest, ErrCodeInvalidInput,
+				"invalid input parameters", err.Error())
+		} else {
+			respondWithError(w, r, http.StatusInternalServerError, ErrCodeInternalError,
+				"failed to execute trade", err.Error())
+			log.Printf("[ERROR] Trade execution failed: %v", err)
+		}
 		return
 	}
 
@@ -78,19 +109,12 @@ func (h *TradeHandler) Handle(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	respondJSON(w, http.StatusOK, tradeResponse{
+	response := tradeResponse{
 		Amount:          output.Amount,
 		TargetPortfolio: output.TargetPortfolio,
 		Orders:          orders,
-	})
-}
+	}
 
-func respondJSON(w http.ResponseWriter, status int, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(v)
-}
-
-func respondError(w http.ResponseWriter, status int, message string) {
-	respondJSON(w, status, map[string]string{"error": message})
+	log.Printf("[INFO] Trade executed successfully: userID=%d, orders=%d", userID, len(orders))
+	respondJSON(w, http.StatusOK, response)
 }

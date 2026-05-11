@@ -68,10 +68,10 @@ func TestTradeHandler_Handle_MethodNotAllowed(t *testing.T) {
 		t.Errorf("Handle() status = %d, want %d", w.Code, http.StatusMethodNotAllowed)
 	}
 
-	var errResponse map[string]string
+	var errResponse map[string]interface{}
 	json.NewDecoder(w.Body).Decode(&errResponse)
-	if errResponse["error"] != "method not allowed" {
-		t.Errorf("Handle() error = %s, want 'method not allowed'", errResponse["error"])
+	if code, ok := errResponse["code"].(string); !ok || code != "METHOD_NOT_ALLOWED" {
+		t.Errorf("Handle() error code = %v, want METHOD_NOT_ALLOWED", errResponse["code"])
 	}
 }
 
@@ -93,10 +93,10 @@ func TestTradeHandler_Handle_InvalidUserID(t *testing.T) {
 		t.Errorf("Handle() status = %d, want %d", w.Code, http.StatusBadRequest)
 	}
 
-	var errResponse map[string]string
+	var errResponse map[string]interface{}
 	json.NewDecoder(w.Body).Decode(&errResponse)
-	if errResponse["error"] != "invalid user_id" {
-		t.Errorf("Handle() error = %s, want 'invalid user_id'", errResponse["error"])
+	if code, ok := errResponse["code"].(string); !ok || code != "INVALID_INPUT" {
+		t.Errorf("Handle() error code = %v, want INVALID_INPUT", errResponse["code"])
 	}
 }
 
@@ -115,10 +115,10 @@ func TestTradeHandler_Handle_InvalidRequestBody(t *testing.T) {
 		t.Errorf("Handle() status = %d, want %d", w.Code, http.StatusBadRequest)
 	}
 
-	var errResponse map[string]string
+	var errResponse map[string]interface{}
 	json.NewDecoder(w.Body).Decode(&errResponse)
-	if errResponse["error"] != "invalid request body" {
-		t.Errorf("Handle() error = %s, want 'invalid request body'", errResponse["error"])
+	if code, ok := errResponse["code"].(string); !ok || code != "INVALID_INPUT" {
+		t.Errorf("Handle() error code = %v, want INVALID_INPUT", errResponse["code"])
 	}
 }
 
@@ -140,10 +140,10 @@ func TestTradeHandler_Handle_InvalidAmount(t *testing.T) {
 		t.Errorf("Handle() status = %d, want %d", w.Code, http.StatusBadRequest)
 	}
 
-	var errResponse map[string]string
+	var errResponse map[string]interface{}
 	json.NewDecoder(w.Body).Decode(&errResponse)
-	if _, hasError := errResponse["error"]; !hasError {
-		t.Errorf("Handle() should return error response")
+	if code, ok := errResponse["code"].(string); !ok || code != "INVALID_INPUT" {
+		t.Errorf("Handle() error code = %v, want INVALID_INPUT", errResponse["code"])
 	}
 }
 
@@ -165,10 +165,10 @@ func TestTradeHandler_Handle_UserNotFound(t *testing.T) {
 		t.Errorf("Handle() status = %d, want %d", w.Code, http.StatusNotFound)
 	}
 
-	var errResponse map[string]string
+	var errResponse map[string]interface{}
 	json.NewDecoder(w.Body).Decode(&errResponse)
-	if errResponse["error"] != "portfolio not found" {
-		t.Errorf("Handle() error = %s, want 'portfolio not found'", errResponse["error"])
+	if code, ok := errResponse["code"].(string); !ok || code != "NOT_FOUND" {
+		t.Errorf("Handle() error code = %v, want NOT_FOUND", errResponse["code"])
 	}
 }
 
@@ -196,7 +196,7 @@ func TestTradeHandler_Handle_ResponseFormat(t *testing.T) {
 		t.Fatalf("Handle() response is not valid JSON: %v", err)
 	}
 
-	// Check required fields
+	// Check required fields in success response
 	if _, ok := response["amount"]; !ok {
 		t.Errorf("Handle() response missing 'amount' field")
 	}
@@ -205,5 +205,44 @@ func TestTradeHandler_Handle_ResponseFormat(t *testing.T) {
 	}
 	if _, ok := response["orders"]; !ok {
 		t.Errorf("Handle() response missing 'orders' field")
+	}
+}
+
+func TestTradeHandler_Handle_ErrorResponseFormat(t *testing.T) {
+	// Arrange - invalid user_id to trigger error response
+	h := setupTradeHandler()
+	body := map[string]int{"amount": 10000}
+	bodyBytes, _ := json.Marshal(body)
+
+	req := httptest.NewRequest("POST", "/users/invalid/trades", bytes.NewBuffer(bodyBytes))
+	req.SetPathValue("user_id", "invalid")
+	w := httptest.NewRecorder()
+
+	// Act
+	h.Handle(w, req)
+
+	// Assert
+	if w.Header().Get("Content-Type") != "application/json" {
+		t.Errorf("Handle() Content-Type = %s, want application/json",
+			w.Header().Get("Content-Type"))
+	}
+
+	var errResponse map[string]interface{}
+	if err := json.NewDecoder(w.Body).Decode(&errResponse); err != nil {
+		t.Fatalf("Handle() error response is not valid JSON: %v", err)
+	}
+
+	// Check required fields in error response
+	if _, ok := errResponse["code"]; !ok {
+		t.Errorf("Handle() error response missing 'code' field")
+	}
+	if _, ok := errResponse["message"]; !ok {
+		t.Errorf("Handle() error response missing 'message' field")
+	}
+	if _, ok := errResponse["timestamp"]; !ok {
+		t.Errorf("Handle() error response missing 'timestamp' field")
+	}
+	if _, ok := errResponse["path"]; !ok {
+		t.Errorf("Handle() error response missing 'path' field")
 	}
 }

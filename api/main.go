@@ -21,10 +21,15 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /users/{user_id}/trades", tradeHandler.Handle)
 
+	// ミドルウェアを適用
+	var handlerWithMiddleware http.Handler = mux
+	handlerWithMiddleware = handler.RecoveryMiddleware(handlerWithMiddleware)
+	handlerWithMiddleware = handler.LoggingMiddleware(handlerWithMiddleware)
+
 	// サーバー起動
 	addr := ":1111"
 	log.Printf("server starting on %s", addr)
-	if err := http.ListenAndServe(addr, mux); err != nil {
+	if err := http.ListenAndServe(addr, handlerWithMiddleware); err != nil {
 		log.Fatalf("server failed: %v", err)
 	}
 }
