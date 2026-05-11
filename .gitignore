@@ -18,4 +18,5 @@ dev_volumes/
 *.log
 .DS_Store
 
+*.bundle
 repomix-output.xml
