@@ -99,6 +99,24 @@ func RecoveryMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+// responseWriterWrapper はhttp.ResponseWriterをラップしてステータスコードを記録する
+type responseWriterWrapper struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+func (w *responseWriterWrapper) WriteHeader(statusCode int) {
+	w.statusCode = statusCode
+	w.ResponseWriter.WriteHeader(statusCode)
+}
+
+func (w *responseWriterWrapper) Write(b []byte) (int, error) {
+	if w.statusCode == 0 {
+		w.statusCode = http.StatusOK
+	}
+	return w.ResponseWriter.Write(b)
+}
+
 // LoggingMiddleware はリクエストとレスポンスをログ出力する
 func LoggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -109,12 +127,14 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 			Add("path", r.URL.Path)
 		logger.LogContext(logger.DEBUG, "Request received", ctx)
 
-		next.ServeHTTP(w, r)
+		wrapped := &responseWriterWrapper{ResponseWriter: w, statusCode: http.StatusOK}
+		next.ServeHTTP(wrapped, r)
 
 		duration := time.Since(start)
 		ctxResponse := logger.NewContext().
 			Add("method", r.Method).
 			Add("path", r.URL.Path).
+			Add("status_code", wrapped.statusCode).
 			Add("duration", duration.String())
 		logger.LogContext(logger.DEBUG, "Request completed", ctxResponse)
 	})

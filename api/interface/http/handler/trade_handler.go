@@ -60,12 +60,12 @@ func (h *TradeHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	// リクエストボディのデコード
 	var req tradeRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondWithError(w, r, http.StatusBadRequest, ErrCodeInvalidInput,
-			"invalid request body", err.Error())
 		logger.Warn("Failed to decode request body", map[string]interface{}{
 			"user_id": userID,
 			"error":   err.Error(),
 		})
+		respondWithError(w, r, http.StatusBadRequest, ErrCodeInvalidInput,
+			"invalid request body", err.Error())
 		return
 	}
 

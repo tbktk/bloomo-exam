@@ -12,3 +12,7 @@ func NewUserID(v int) (UserID, error) {
 }
 
 func (u UserID) Value() int { return u.value }
+
+func (u UserID) Equals(other UserID) bool {
+	return u.value == other.value
+}
