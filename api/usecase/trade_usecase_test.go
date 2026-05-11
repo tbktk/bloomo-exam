@@ -2,7 +2,7 @@ package usecase_test
 
 import (
 	"bloomo-exam-api/domain/trade"
-	"bloomo-exam-api/infrastructure/memory"
+	"bloomo-exam-api/infrastructure/repository/memory"
 	"bloomo-exam-api/usecase"
 	"testing"
 )

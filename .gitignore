@@ -17,3 +17,5 @@ dev_volumes/
 # Logs and OS files
 *.log
 .DS_Store
+
+repomix-output.xml

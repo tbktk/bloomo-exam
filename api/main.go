@@ -3,7 +3,7 @@ package main
 import (
 	"bloomo-exam-api/domain/trade"
 	"bloomo-exam-api/infrastructure/logger"
-	"bloomo-exam-api/infrastructure/memory"
+	"bloomo-exam-api/infrastructure/repository/memory"
 	"bloomo-exam-api/interface/http/handler"
 	"bloomo-exam-api/usecase"
 	"log"

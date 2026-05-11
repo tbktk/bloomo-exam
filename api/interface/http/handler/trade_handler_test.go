@@ -2,7 +2,7 @@ package handler_test
 
 import (
 	"bloomo-exam-api/domain/trade"
-	"bloomo-exam-api/infrastructure/memory"
+	"bloomo-exam-api/infrastructure/repository/memory"
 	"bloomo-exam-api/interface/http/handler"
 	"bloomo-exam-api/usecase"
 	"bytes"
